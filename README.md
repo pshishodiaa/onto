@@ -9,6 +9,12 @@ A stopwatch-style time tracker for logging what you do throughout the day. See w
 3. Tap preset buttons for common activities
 4. Check the Summary tab to see your time breakdown
 
+### Keyboard shortcuts
+
+- **Enter** — Start timer or lap to next activity
+- **Escape** — Stop tracking
+- **Cmd/Ctrl + K** — Focus activity input
+
 ## Local development
 
 ```bash

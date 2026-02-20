@@ -7,6 +7,24 @@ export default function ActivityInput({ running, onStart, onLap, onStop, value, 
     if (inputRef.current) inputRef.current.focus()
   }, [])
 
+  useEffect(() => {
+    function handleKeyDown(e) {
+      // Escape to stop tracking
+      if (e.key === 'Escape' && running) {
+        onStop()
+        return
+      }
+      // Cmd/Ctrl + K to focus input
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        inputRef.current?.focus()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [running, onStop])
+
   function handleSubmit(e) {
     e.preventDefault()
     const name = value.trim()

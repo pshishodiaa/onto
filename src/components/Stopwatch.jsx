@@ -7,16 +7,22 @@ export default function Stopwatch({ activeLap }) {
   useEffect(() => {
     if (!activeLap) {
       setElapsed(0)
+      document.title = 'Onto'
       return
     }
 
     function tick() {
-      setElapsed(Date.now() - activeLap.startTime)
+      const elapsed = Date.now() - activeLap.startTime
+      setElapsed(elapsed)
+      document.title = `${formatDuration(elapsed)} - ${activeLap.name}`
     }
 
     tick()
     const id = setInterval(tick, 1000)
-    return () => clearInterval(id)
+    return () => {
+      clearInterval(id)
+      document.title = 'Onto'
+    }
   }, [activeLap])
 
   return (
