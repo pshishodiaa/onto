@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import Stopwatch from './components/Stopwatch.jsx'
 import ActivityInput from './components/ActivityInput.jsx'
 import PresetButtons from './components/PresetButtons.jsx'
@@ -6,18 +6,36 @@ import LapList from './components/LapList.jsx'
 import Summary from './components/Summary.jsx'
 import { useStopwatch } from './hooks/useStopwatch.js'
 import { useSync } from './hooks/useSync.js'
-import { loadPresets, savePresets } from './utils/storage.js'
+import { hasApiConfig, fetchPresets, pushPresets } from './utils/api.js'
 import { DEFAULT_PRESETS } from './utils/constants.js'
 
 export default function App() {
   const [view, setView] = useState('stopwatch')
   const [inputValue, setInputValue] = useState('')
-  const { laps, activeLap, running, dateKey, start, lap, stop, deleteLap, setOnChange } =
+  const { laps, activeLap, running, dateKey, start, lap, stop, deleteLap, load, setOnChange } =
     useStopwatch()
 
-  useSync(dateKey, setOnChange)
+  const { loading } = useSync(dateKey, load, setOnChange)
 
-  const presets = useMemo(() => loadPresets() || DEFAULT_PRESETS, [])
+  const [presets, setPresets] = useState(DEFAULT_PRESETS)
+
+  // Load presets from server + refresh on visibility change
+  useEffect(() => {
+    if (!hasApiConfig()) return
+
+    async function pullPresets() {
+      const p = await fetchPresets()
+      if (p && p.length > 0) setPresets(p)
+    }
+
+    pullPresets()
+
+    function onVisibility() {
+      if (document.visibilityState === 'visible') pullPresets()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [])
 
   function handleStart(name) {
     start(name)
@@ -30,11 +48,24 @@ export default function App() {
   }
 
   function addToPresets(name) {
-    const current = loadPresets() || DEFAULT_PRESETS
-    if (!current.includes(name.toLowerCase())) {
-      const updated = [name.toLowerCase(), ...current].slice(0, 15)
-      savePresets(updated)
+    if (!presets.includes(name.toLowerCase())) {
+      const updated = [name.toLowerCase(), ...presets].slice(0, 15)
+      setPresets(updated)
+      if (hasApiConfig()) pushPresets(updated)
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="app">
+        <header className="app-header">
+          <h1>Onto</h1>
+        </header>
+        <main className="app-main">
+          <p style={{ textAlign: 'center', padding: '2rem', opacity: 0.5 }}>Loading...</p>
+        </main>
+      </div>
+    )
   }
 
   return (
@@ -62,7 +93,7 @@ export default function App() {
             <LapList laps={laps} onDelete={deleteLap} />
           </>
         ) : (
-          <Summary />
+          <Summary laps={laps} activeLap={activeLap} />
         )}
       </main>
 

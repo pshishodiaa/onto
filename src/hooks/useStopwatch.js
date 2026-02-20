@@ -1,5 +1,4 @@
 import { useReducer, useEffect, useCallback, useRef } from 'react'
-import { loadDay, saveDay } from '../utils/storage.js'
 import { todayKey } from '../utils/time.js'
 
 function generateId() {
@@ -72,24 +71,10 @@ function reducer(state, action) {
     case 'CHECK_DATE': {
       const today = todayKey()
       if (state.dateKey !== today) {
-        // Day rolled over — stop current lap at midnight, start fresh
         const midnight = new Date()
         midnight.setHours(0, 0, 0, 0)
         const midnightTs = midnight.getTime()
 
-        const completedLap = state.activeLap
-          ? {
-              ...state.activeLap,
-              endTime: midnightTs,
-              duration: midnightTs - state.activeLap.startTime,
-            }
-          : null
-
-        // Save yesterday's data
-        const yesterdayLaps = completedLap ? [completedLap, ...state.laps] : state.laps
-        saveDay(state.dateKey, { laps: yesterdayLaps, activeLap: null })
-
-        // Start fresh today, carrying over the activity name
         const newActiveLap = state.activeLap
           ? { id: generateId(), name: state.activeLap.name, startTime: midnightTs }
           : null
@@ -111,24 +96,18 @@ function reducer(state, action) {
 export function useStopwatch() {
   const [state, dispatch] = useReducer(reducer, initialState)
   const onChangeRef = useRef(null)
+  const stateRef = useRef(state)
+  const loadedRef = useRef(false)
+  const skipNextPushRef = useRef(false)
+  stateRef.current = state
 
-  // Load saved state on mount
+  // Push to server on every state change (only after initial load)
   useEffect(() => {
-    const dateKey = todayKey()
-    const saved = loadDay(dateKey)
-    if (saved) {
-      dispatch({
-        type: 'LOAD',
-        laps: saved.laps || [],
-        activeLap: saved.activeLap || null,
-        dateKey,
-      })
+    if (!loadedRef.current) return
+    if (skipNextPushRef.current) {
+      skipNextPushRef.current = false
+      return
     }
-  }, [])
-
-  // Persist on every state change
-  useEffect(() => {
-    saveDay(state.dateKey, { laps: state.laps, activeLap: state.activeLap })
     if (onChangeRef.current) {
       onChangeRef.current(state.dateKey, { laps: state.laps, activeLap: state.activeLap })
     }
@@ -136,7 +115,28 @@ export function useStopwatch() {
 
   // Check for date rollover every minute
   useEffect(() => {
-    const interval = setInterval(() => dispatch({ type: 'CHECK_DATE' }), 60000)
+    const interval = setInterval(() => {
+      const today = todayKey()
+      const current = stateRef.current
+      if (current.dateKey !== today) {
+        // Push yesterday's completed data to server before rolling over
+        if (onChangeRef.current) {
+          const midnight = new Date()
+          midnight.setHours(0, 0, 0, 0)
+          const midnightTs = midnight.getTime()
+          const completedLap = current.activeLap
+            ? {
+                ...current.activeLap,
+                endTime: midnightTs,
+                duration: midnightTs - current.activeLap.startTime,
+              }
+            : null
+          const yesterdayLaps = completedLap ? [completedLap, ...current.laps] : current.laps
+          onChangeRef.current(current.dateKey, { laps: yesterdayLaps, activeLap: null })
+        }
+        dispatch({ type: 'CHECK_DATE' })
+      }
+    }, 60000)
     return () => clearInterval(interval)
   }, [])
 
@@ -144,6 +144,17 @@ export function useStopwatch() {
   const lap = useCallback((name) => dispatch({ type: 'LAP', name }), [])
   const stop = useCallback(() => dispatch({ type: 'STOP' }), [])
   const deleteLap = useCallback((id) => dispatch({ type: 'DELETE_LAP', id }), [])
+
+  const load = useCallback((dateKey, data) => {
+    skipNextPushRef.current = true
+    dispatch({
+      type: 'LOAD',
+      laps: data?.laps || [],
+      activeLap: data?.activeLap || null,
+      dateKey,
+    })
+    loadedRef.current = true
+  }, [])
 
   const setOnChange = useCallback((fn) => {
     onChangeRef.current = fn
@@ -158,6 +169,7 @@ export function useStopwatch() {
     lap,
     stop,
     deleteLap,
+    load,
     setOnChange,
   }
 }

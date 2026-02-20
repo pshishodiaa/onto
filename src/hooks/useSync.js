@@ -1,58 +1,49 @@
-import { useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { fetchDay, pushDay, hasApiConfig } from '../utils/api.js'
-import { loadDay, saveDay } from '../utils/storage.js'
 
-export function useSync(dateKey, setOnChange) {
-  const syncingRef = useRef(false)
+export function useSync(dateKey, load, setOnChange) {
+  const [loading, setLoading] = useState(true)
 
-  // Pull from server on mount / date change
+  // Pull from server on mount / date change / visibility change
   useEffect(() => {
-    if (!hasApiConfig()) return
+    if (!hasApiConfig()) {
+      setLoading(false)
+      return
+    }
 
     let cancelled = false
+    let initialDone = false
 
     async function pull() {
       const remote = await fetchDay(dateKey)
-      if (cancelled || !remote) return
-
-      const local = loadDay(dateKey)
-      // Use whichever has more recent data
-      const remoteLatest = getLatestTimestamp(remote)
-      const localLatest = getLatestTimestamp(local)
-
-      if (remoteLatest > localLatest) {
-        saveDay(dateKey, remote)
-        // Force a page reload to pick up new data — simplest approach for single user
-        window.location.reload()
+      if (cancelled) return
+      load(dateKey, remote || { laps: [], activeLap: null })
+      if (!initialDone) {
+        initialDone = true
+        setLoading(false)
       }
     }
 
     pull()
-    return () => { cancelled = true }
-  }, [dateKey])
+
+    function onVisibility() {
+      if (document.visibilityState === 'visible') pull()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+
+    return () => {
+      cancelled = true
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [dateKey, load])
 
   // Push to server on every change
   useEffect(() => {
     setOnChange((key, data) => {
       if (!hasApiConfig()) return
-      if (syncingRef.current) return
-      syncingRef.current = true
-      pushDay(key, data).finally(() => {
-        syncingRef.current = false
-      })
+      pushDay(key, data)
     })
   }, [setOnChange])
-}
 
-function getLatestTimestamp(dayData) {
-  if (!dayData) return 0
-  let latest = 0
-  if (dayData.activeLap?.startTime > latest) latest = dayData.activeLap.startTime
-  if (dayData.laps) {
-    for (const lap of dayData.laps) {
-      if (lap.endTime > latest) latest = lap.endTime
-      if (lap.startTime > latest) latest = lap.startTime
-    }
-  }
-  return latest
+  return { loading }
 }
