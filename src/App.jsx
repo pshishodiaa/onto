@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Stopwatch from './components/Stopwatch.jsx'
 import ActivityInput from './components/ActivityInput.jsx'
 import PresetButtons from './components/PresetButtons.jsx'
@@ -9,13 +9,86 @@ import { useSync } from './hooks/useSync.js'
 import { hasApiConfig, fetchPresets, pushPresets } from './utils/api.js'
 import { DEFAULT_PRESETS } from './utils/constants.js'
 
+function timeAgo(ts) {
+  if (!ts) return null
+  const s = Math.floor((Date.now() - ts) / 1000)
+  if (s < 10) return 'just now'
+  if (s < 60) return `${s}s ago`
+  const m = Math.floor(s / 60)
+  if (m < 60) return `${m}m ago`
+  return `${Math.floor(m / 60)}h ago`
+}
+
 export default function App() {
   const [view, setView] = useState('stopwatch')
   const [inputValue, setInputValue] = useState('')
   const { laps, activeLap, running, dateKey, start, lap, stop, deleteLap, load, setOnChange } =
     useStopwatch()
 
-  const { loading } = useSync(dateKey, load, setOnChange)
+  const { loading, lastSynced, syncing, refresh } = useSync(dateKey, load, setOnChange)
+
+  // Re-render periodically to update "synced X ago" text
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    if (!lastSynced) return
+    const id = setInterval(() => setTick((t) => t + 1), 30000)
+    return () => clearInterval(id)
+  }, [lastSynced])
+
+  // Pull-to-refresh
+  const mainRef = useRef(null)
+  const [pullY, setPullY] = useState(0)
+  const pullYRef = useRef(0)
+  const refreshRef = useRef(refresh)
+  refreshRef.current = refresh
+
+  useEffect(() => {
+    const el = mainRef.current
+    if (!el) return
+
+    let startY = null
+    let pulling = false
+
+    function onTouchStart(e) {
+      if (el.scrollTop <= 0 && !pulling) {
+        startY = e.touches[0].clientY
+      }
+    }
+
+    function onTouchMove(e) {
+      if (startY === null) return
+      const delta = e.touches[0].clientY - startY
+      if (delta > 0 && el.scrollTop <= 0) {
+        pulling = true
+        e.preventDefault()
+        const dist = Math.min(delta * 0.4, 80)
+        pullYRef.current = dist
+        setPullY(dist)
+      } else if (!pulling) {
+        startY = null
+      }
+    }
+
+    function onTouchEnd() {
+      if (pullYRef.current > 50) {
+        refreshRef.current()
+      }
+      pullYRef.current = 0
+      setPullY(0)
+      startY = null
+      pulling = false
+    }
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true })
+    el.addEventListener('touchmove', onTouchMove, { passive: false })
+    el.addEventListener('touchend', onTouchEnd, { passive: true })
+
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart)
+      el.removeEventListener('touchmove', onTouchMove)
+      el.removeEventListener('touchend', onTouchEnd)
+    }
+  }, [])
 
   const [presets, setPresets] = useState(DEFAULT_PRESETS)
 
@@ -72,9 +145,21 @@ export default function App() {
     <div className="app">
       <header className="app-header">
         <h1>Onto</h1>
+        {lastSynced && (
+          <button className="sync-status" onClick={refresh} disabled={syncing}>
+            {syncing ? 'syncing…' : `synced ${timeAgo(lastSynced)}`}
+          </button>
+        )}
       </header>
 
-      <main className="app-main">
+      <div
+        className={`pull-indicator${pullY > 0 ? ' pulling' : ''}`}
+        style={{ height: syncing ? 36 : pullY > 0 ? Math.min(pullY * 0.5, 36) : 0 }}
+      >
+        <span className={syncing ? 'spin' : ''}>↻</span>
+      </div>
+
+      <main className="app-main" ref={mainRef}>
         {view === 'stopwatch' ? (
           <>
             <Stopwatch activeLap={activeLap} />

@@ -63,6 +63,46 @@ html, body {
   -webkit-overflow-scrolling: touch;
 }
 
+/* Sync status */
+.sync-status {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.sync-status:active {
+  background: var(--bg-input);
+}
+
+/* Pull-to-refresh */
+.pull-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: height 0.3s ease;
+  color: var(--text-dim);
+  font-size: 18px;
+}
+
+.pull-indicator.pulling {
+  transition: none;
+}
+
+.pull-indicator .spin {
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* Stopwatch */
 .stopwatch {
   text-align: center;

@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { fetchDay, pushDay, hasApiConfig } from '../utils/api.js'
 
 export function useSync(dateKey, load, setOnChange) {
   const [loading, setLoading] = useState(true)
+  const [lastSynced, setLastSynced] = useState(null)
+  const [syncing, setSyncing] = useState(false)
 
   // Pull from server on mount / date change / visibility change
   useEffect(() => {
@@ -18,6 +20,7 @@ export function useSync(dateKey, load, setOnChange) {
       const remote = await fetchDay(dateKey)
       if (cancelled) return
       load(dateKey, remote || { laps: [], activeLap: null })
+      setLastSynced(Date.now())
       if (!initialDone) {
         initialDone = true
         setLoading(false)
@@ -37,6 +40,19 @@ export function useSync(dateKey, load, setOnChange) {
     }
   }, [dateKey, load])
 
+  // Manual refresh
+  const refresh = useCallback(async () => {
+    if (!hasApiConfig()) return
+    setSyncing(true)
+    try {
+      const remote = await fetchDay(dateKey)
+      load(dateKey, remote || { laps: [], activeLap: null })
+      setLastSynced(Date.now())
+    } finally {
+      setSyncing(false)
+    }
+  }, [dateKey, load])
+
   // Push to server on every change
   useEffect(() => {
     setOnChange((key, data) => {
@@ -45,5 +61,5 @@ export function useSync(dateKey, load, setOnChange) {
     })
   }, [setOnChange])
 
-  return { loading }
+  return { loading, lastSynced, syncing, refresh }
 }
