@@ -1,7 +1,6 @@
-import { useState, useRef, useEffect } from 'react'
+import { useRef, useEffect } from 'react'
 
-export default function ActivityInput({ running, onStart, onLap, onStop }) {
-  const [value, setValue] = useState('')
+export default function ActivityInput({ running, onStart, onLap, onStop, value, setValue }) {
   const inputRef = useRef(null)
 
   useEffect(() => {

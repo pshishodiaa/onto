@@ -11,8 +11,8 @@ export default defineConfig({
         name: 'Onto — Time Tracker',
         short_name: 'Onto',
         description: 'Track where your time goes',
-        theme_color: '#1a1a2e',
-        background_color: '#1a1a2e',
+        theme_color: '#f2f2f7',
+        background_color: '#f2f2f7',
         display: 'standalone',
         start_url: '/',
         icons: [

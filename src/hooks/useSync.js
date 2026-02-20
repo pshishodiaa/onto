@@ -1,14 +1,13 @@
-import { useEffect, useCallback, useRef } from 'react'
-import { fetchDay, pushDay } from '../utils/api.js'
-import { loadDay, saveDay, getApiConfig } from '../utils/storage.js'
+import { useEffect, useRef } from 'react'
+import { fetchDay, pushDay, hasApiConfig } from '../utils/api.js'
+import { loadDay, saveDay } from '../utils/storage.js'
 
 export function useSync(dateKey, setOnChange) {
   const syncingRef = useRef(false)
 
   // Pull from server on mount / date change
   useEffect(() => {
-    const { url, token } = getApiConfig()
-    if (!url || !token) return
+    if (!hasApiConfig()) return
 
     let cancelled = false
 
@@ -35,8 +34,7 @@ export function useSync(dateKey, setOnChange) {
   // Push to server on every change
   useEffect(() => {
     setOnChange((key, data) => {
-      const { url, token } = getApiConfig()
-      if (!url || !token) return
+      if (!hasApiConfig()) return
       if (syncingRef.current) return
       syncingRef.current = true
       pushDay(key, data).finally(() => {

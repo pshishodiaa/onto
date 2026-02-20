@@ -1,16 +1,8 @@
-export default function PresetButtons({ presets, running, onStart, onLap }) {
-  function handleClick(name) {
-    if (running) {
-      onLap(name)
-    } else {
-      onStart(name)
-    }
-  }
-
+export default function PresetButtons({ presets, onSelect }) {
   return (
     <div className="preset-buttons">
       {presets.map((name) => (
-        <button key={name} className="preset-pill" onClick={() => handleClick(name)}>
+        <button key={name} className="preset-pill" onClick={() => onSelect(name)}>
           {name}
         </button>
       ))}

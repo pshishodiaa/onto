@@ -27,15 +27,3 @@ export function loadPresets() {
 export function savePresets(presets) {
   localStorage.setItem(STORAGE_KEYS.PRESETS, JSON.stringify(presets))
 }
-
-export function getApiConfig() {
-  return {
-    url: localStorage.getItem(STORAGE_KEYS.API_URL) || '',
-    token: localStorage.getItem(STORAGE_KEYS.API_TOKEN) || '',
-  }
-}
-
-export function setApiConfig(url, token) {
-  localStorage.setItem(STORAGE_KEYS.API_URL, url)
-  localStorage.setItem(STORAGE_KEYS.API_TOKEN, token)
-}
