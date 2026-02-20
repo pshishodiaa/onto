@@ -22,6 +22,7 @@ function timeAgo(ts) {
 export default function App() {
   const [view, setView] = useState('stopwatch')
   const [inputValue, setInputValue] = useState('')
+  const [undoLap, setUndoLap] = useState(null)
   const { laps, activeLap, running, dateKey, start, lap, stop, deleteLap, load, setOnChange } =
     useStopwatch()
 
@@ -128,6 +129,23 @@ export default function App() {
     }
   }
 
+  function handleDeleteLap(id) {
+    const lap = laps.find((l) => l.id === id)
+    if (lap) {
+      setUndoLap(lap)
+      deleteLap(id)
+      setTimeout(() => setUndoLap(null), 5000)
+    }
+  }
+
+  function handleUndo() {
+    if (undoLap) {
+      // Re-insert the lap at the beginning
+      load(dateKey, { laps: [undoLap, ...laps], activeLap })
+      setUndoLap(null)
+    }
+  }
+
   if (loading) {
     return (
       <div className="app">
@@ -175,7 +193,7 @@ export default function App() {
               presets={presets}
               onSelect={setInputValue}
             />
-            <LapList laps={laps} onDelete={deleteLap} />
+            <LapList laps={laps} onDelete={handleDeleteLap} />
           </>
         ) : (
           <Summary laps={laps} activeLap={activeLap} />
@@ -196,6 +214,13 @@ export default function App() {
           Summary
         </button>
       </nav>
+
+      {undoLap && (
+        <div className="undo-toast">
+          <span>Lap deleted</span>
+          <button onClick={handleUndo}>Undo</button>
+        </div>
+      )}
 
     </div>
   )
